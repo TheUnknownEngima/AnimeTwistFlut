@@ -15,26 +15,33 @@ class KitsuModel extends HiveObject {
   final String description;
 
   @HiveField(3)
-  final String imageURL;
+  final String posterImage;
 
   @HiveField(4)
   final String trailerURL;
+
+  @HiveField(5)
+  final String coverImage;
 
   KitsuModel({
     this.id,
     this.rating,
     this.description,
-    this.imageURL,
+    this.posterImage,
     this.trailerURL,
+    this.coverImage,
   });
 
   factory KitsuModel.fromJson(Map<String, dynamic> data) {
+    var coverData = data["data"]["attributes"]["coverImage"];
+    var posterData = data["data"]["attributes"]["posterImage"];
     return KitsuModel(
       id: data["data"]["id"],
       rating: data["data"]["attributes"]["averageRating"],
-      imageURL: data["data"]["attributes"]["posterImage"]["large"],
+      posterImage: posterData != null ? posterData["large"] : null,
       description: data["data"]["attributes"]["synopsis"],
       trailerURL: data["data"]["attributes"]["youtubeVideoId"],
+      coverImage: coverData != null ? coverData["large"] : null,
     );
   }
 }

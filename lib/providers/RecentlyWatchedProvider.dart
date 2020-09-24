@@ -23,13 +23,13 @@ class RecentlyWatchedProvider extends ChangeNotifier {
     Hive.registerAdapter<TwistModel>(TwistModelAdapter());
     Hive.registerAdapter<KitsuModel>(KitsuModelAdapter());
     Hive.registerAdapter<EpisodeModel>(EpisodeModelAdapter());
-    Hive.registerAdapter<RecentlyWatchedModel>(LastWatchedModelAdapter());
+    Hive.registerAdapter<RecentlyWatchedModel>(RecentlyWatchedModelAdapter());
     var box = await Hive.openBox(BOX_NAME);
 
     // For whatever reason, directly assigning lastWatchedAnimes to
     // box.get(KEY_NAME) does not work, so loop through all the elements and add
     // it to the list one by one.
-    dynamic contents = box.get(KEY_NAME);
+    dynamic contents = box?.get(KEY_NAME) ?? [];
     for (int i = 0; i < contents?.length ?? 0; i++) {
       recentlyWatchedAnimes.add(contents[i]);
     }

@@ -1,9 +1,12 @@
 // Flutter imports:
+import 'package:AnimeTwistFlut/animations/Transitions.dart';
 import 'package:AnimeTwistFlut/models/RecentlyWatchedModel.dart';
+import 'package:AnimeTwistFlut/pages/all_anime_page/AllAnimePage.dart';
 import 'package:AnimeTwistFlut/providers/RecentlyWatchedProvider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:page_view_indicators/page_view_indicators.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:AnimeTwistFlut/constants.dart';
 
 // Project imports:
 import 'RecentlyWatchedCard.dart';
@@ -27,60 +30,192 @@ class _RecentlyWatchedSliderState extends State<RecentlyWatchedSlider> {
   @override
   Widget build(BuildContext context) {
     double height = MediaQuery.of(context).size.height;
+    double width = MediaQuery.of(context).size.width;
     Orientation orientation = MediaQuery.of(context).orientation;
+    var containerHeight =
+        orientation == Orientation.portrait ? height * 0.4 : width * 0.3;
     return Consumer<RecentlyWatchedProvider>(
       builder: (context, provider, child) {
-        if (!provider.hasData()) return Container();
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(
-                bottom: 15.0,
-                left: 15.0,
-                right: 15.0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    "Recently Watched".toUpperCase(),
-                    style: TextStyle(
-                      color: Theme.of(context).accentColor,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                      fontSize: 17.0,
+        if (!provider.hasData())
+          return Container(
+            width: double.infinity,
+            height: containerHeight,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned.fill(
+                  child: Image.network(
+                    DEFAULT_IMAGE_URL,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Positioned.fill(
+                  child: Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    color: Color(0xff070E30).withOpacity(0.7),
+                  ),
+                ),
+                Positioned(
+                  bottom: orientation == Orientation.portrait
+                      ? height * 0.3
+                      : width * 0.225,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 20.0,
+                      vertical: 8.0,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.white,
+                      ),
+                      borderRadius: BorderRadius.circular(
+                        20.0,
+                      ),
+                    ),
+                    child: Text(
+                      "Recently Watched".toUpperCase(),
+                      style: TextStyle(
+                        letterSpacing: 1.25,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12.0,
+                      ),
                     ),
                   ),
-                  CirclePageIndicator(
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 30.0,
+                  ),
+                  child: Text(
+                    "Looks like you haven't watched anything yet!",
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    // minFontSize: 17.0,
+                    overflow: TextOverflow.visible,
+                    style: TextStyle(
+                      letterSpacing: 1.0,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 25.0,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: orientation == Orientation.portrait
+                      ? height * 0.03
+                      : width * 0.03,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 20.0,
+                      vertical: 8.0,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Start Watching".toUpperCase(),
+                          style: TextStyle(
+                            letterSpacing: 1.25,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.0,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 5.0,
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 12.0,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        Transitions.slideTransition(
+                          context: context,
+                          pageBuilder: () => AllAnimePage(),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        return Stack(
+          children: [
+            Container(
+              height: containerHeight,
+              child: Stack(
+                alignment: Alignment.bottomCenter,
+                children: [
+                  PageView.builder(
+                    controller: _controller,
+                    physics: BouncingScrollPhysics(),
+                    itemBuilder: (context, index) {
+                      // Since the lastWatchedAnimes are stored from oldest first to
+                      // newest last, reverse the list so that the latest watched
+                      // anime is shown first. Maybe do this in the service itself
+                      // but fine here for now.
+                      List<RecentlyWatchedModel> lastWatchedAnimes =
+                          provider.recentlyWatchedAnimes.reversed.toList();
+
+                      return RecentlyWatchedCard(
+                          lastWatchedModel: lastWatchedAnimes[index]);
+                    },
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentPageNotifier.value = index;
+                      });
+                    },
                     itemCount: provider.recentlyWatchedAnimes.length,
-                    currentPageNotifier: _currentPageNotifier,
+                  ),
+                  Positioned(
+                    bottom: orientation == Orientation.portrait
+                        ? height * 0.3
+                        : width * 0.23,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20.0,
+                        vertical: 8.0,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: Colors.white,
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          20.0,
+                        ),
+                      ),
+                      child: Text(
+                        "Recently Watched".toUpperCase(),
+                        style: TextStyle(
+                          letterSpacing: 1.25,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: MediaQuery.of(context).size.height * 0.05,
+                    child: AnimatedSmoothIndicator(
+                      activeIndex: _currentPageNotifier.value,
+                      count: provider.recentlyWatchedAnimes.length,
+                      effect: WormEffect(
+                        dotColor: Theme.of(context).hintColor,
+                        activeDotColor: Colors.white,
+                        dotWidth: 8.0,
+                        dotHeight: 8.0,
+                      ),
+                    ),
                   ),
                 ],
-              ),
-            ),
-            Container(
-              height: orientation == Orientation.portrait
-                  ? height * 0.275
-                  : height * 0.4,
-              child: PageView.builder(
-                controller: _controller,
-                physics: BouncingScrollPhysics(),
-                itemBuilder: (context, index) {
-                  // Since the lastWatchedAnimes are stored from oldest first to
-                  // newest last, reverse the list so that the latest watched
-                  // anime is shown first. Maybe do this in the service itself
-                  // but fine here for now.
-                  List<RecentlyWatchedModel> lastWatchedAnimes =
-                      provider.recentlyWatchedAnimes.reversed.toList();
-
-                  return RecentlyWatchedCard(
-                      lastWatchedModel: lastWatchedAnimes[index]);
-                },
-                onPageChanged: (index) {
-                  _currentPageNotifier.value = index;
-                },
-                itemCount: provider.recentlyWatchedAnimes.length,
               ),
             ),
           ],
