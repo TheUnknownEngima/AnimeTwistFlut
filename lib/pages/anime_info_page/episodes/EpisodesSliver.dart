@@ -1,21 +1,18 @@
 // Flutter imports:
 import 'package:flutter/material.dart';
 
-// Package imports:
-import 'package:provider/provider.dart';
-
 // Project imports:
 import 'package:AnimeTwistFlut/models/EpisodeModel.dart';
 import 'package:AnimeTwistFlut/pages/anime_info_page/episodes/EpisodeCard.dart';
-import 'package:AnimeTwistFlut/providers/EpisodesWatchedProvider.dart';
-import 'package:AnimeTwistFlut/providers/RecentlyWatchedProvider.dart';
 
 class EpisodesSliver extends StatelessWidget {
+  final Key key;
   final List<EpisodeModel> episodes;
-  final EpisodesWatchedProvider episodesWatchedProvider;
 
-  EpisodesSliver(
-      {@required this.episodes, @required this.episodesWatchedProvider});
+  EpisodesSliver({
+    this.key,
+    @required this.episodes,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -34,24 +31,13 @@ class EpisodesSliver extends StatelessWidget {
         ),
         delegate: SliverChildBuilderDelegate(
           (context, index) {
-            return MultiProvider(
-              providers: [
-                ChangeNotifierProvider<EpisodesWatchedProvider>.value(
-                  value: episodesWatchedProvider,
-                ),
-                ChangeNotifierProvider<RecentlyWatchedProvider>.value(
-                  value: RecentlyWatchedProvider.provider,
-                ),
-              ],
-              child: Padding(
-                padding: EdgeInsets.all(
-                  1.0,
-                ),
-                child: EpisodeCard(
-                  episodeModel: episodes.elementAt(index),
-                  episodes: episodes,
-                  episodesWatchedProvider: episodesWatchedProvider,
-                ),
+            return Padding(
+              padding: EdgeInsets.all(
+                1.0,
+              ),
+              child: EpisodeCard(
+                episodeModel: episodes.elementAt(index),
+                episodes: episodes,
               ),
             );
           },

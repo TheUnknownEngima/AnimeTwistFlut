@@ -8,15 +8,19 @@ import 'package:flutter/material.dart';
 
 // Package imports:
 import 'package:auto_size_text/auto_size_text.dart';
+import 'package:flutter_riverpod/all.dart';
 
 // Project imports:
 import '../../../animations/Transitions.dart';
 import '../../anime_info_page/AnimeInfoPage.dart';
+import 'RecentlyWatchedSlider.dart';
 
 class RecentlyWatchedCard extends StatefulWidget {
   final RecentlyWatchedModel lastWatchedModel;
 
-  const RecentlyWatchedCard({@required this.lastWatchedModel});
+  const RecentlyWatchedCard({
+    @required this.lastWatchedModel,
+  });
 
   @override
   State<StatefulWidget> createState() {
@@ -37,11 +41,17 @@ class _RecentlyWatchedCardState extends State<RecentlyWatchedCard> {
         alignment: Alignment.center,
         children: [
           Positioned.fill(
-            child: Image.network(
-              widget.lastWatchedModel.kitsuModel?.coverImage ??
-                  widget.lastWatchedModel.kitsuModel?.posterImage ??
-                  DEFAULT_IMAGE_URL,
-              fit: BoxFit.cover,
+            child: Consumer(
+              builder: (context, watch, child) {
+                var prov = watch(offsetProvider);
+                return Image.network(
+                  widget.lastWatchedModel.kitsuModel?.coverImage ??
+                      widget.lastWatchedModel.kitsuModel?.posterImage ??
+                      DEFAULT_IMAGE_URL,
+                  fit: BoxFit.cover,
+                  alignment: Alignment(-prov.state.abs(), 0),
+                );
+              },
             ),
           ),
           Positioned.fill(
