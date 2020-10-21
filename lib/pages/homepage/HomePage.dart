@@ -1,9 +1,12 @@
 // Flutter imports:
 import 'dart:async';
 
+import 'package:AnimeTwistFlut/main.dart';
 import 'package:AnimeTwistFlut/models/TwistModel.dart';
 import 'package:AnimeTwistFlut/pages/anime_info_page/AnimeInfoPage.dart';
+import 'package:AnimeTwistFlut/pages/homepage/AppbarText.dart';
 import 'package:AnimeTwistFlut/pages/homepage/to_watch_row/ToWatchRow.dart';
+import 'package:AnimeTwistFlut/pages/settings_page/SettingsPage.dart';
 import 'package:AnimeTwistFlut/providers/ToWatchProvider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,7 +21,6 @@ import '../../providers/RecentlyWatchedProvider.dart';
 import '../../services/twist_service/TwistApiService.dart';
 import '../chat_page/ChatPage.dart';
 import '../search_page/SearchPage.dart';
-import 'AboutIcon.dart';
 import 'recently_watched_slider/RecentlyWatchedSlider.dart';
 import 'MOTDCard.dart';
 import 'ViewAllAnimeCard.dart';
@@ -75,7 +77,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       String recievedUrl = (url ?? await getInitialLink()) ?? "";
-      RegExp regex = RegExp(r'https://twist.moe/a/(.*).*');
+      RegExp regex = RegExp(r'https://twist.moe/a/(.*)/+.*');
       Iterable<Match> matches = regex.allMatches(recievedUrl);
       String slug = matches.length > 0 ? matches.elementAt(0).group(1) : "";
 
@@ -112,6 +114,7 @@ class _HomePageState extends State<HomePage> {
 
   Future initData(BuildContext context) async {
     TwistApiService twistApiService = Get.put(TwistApiService());
+    await context.read(accentProvider).initData();
     await twistApiService.setTwistModels();
     await context.read(recentlyWatchedProvider).initData();
     await context.read(toWatchProvider).initData();
@@ -121,31 +124,19 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: RichText(
-          text: TextSpan(
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-            ),
-            children: <TextSpan>[
-              TextSpan(
-                text: "twist.",
-                style: TextStyle(
-                  fontSize: 20.0,
-                  color: Theme.of(context).textTheme.headline6.color,
-                ),
-              ),
-              TextSpan(
-                text: "moe",
-                style: TextStyle(
-                  fontSize: 20.0,
-                  color: Theme.of(context).accentColor,
-                ),
-              ),
-            ],
-          ),
-        ),
+        title: AppbarText(),
         actions: [
-          AboutIcon(),
+          IconButton(
+            icon: Icon(
+              Icons.settings,
+            ),
+            onPressed: () {
+              Transitions.slideTransition(
+                context: context,
+                pageBuilder: () => SettingsPage(),
+              );
+            },
+          ),
           IconButton(
             icon: Icon(
               Icons.chat_bubble,

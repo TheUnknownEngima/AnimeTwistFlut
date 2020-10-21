@@ -54,6 +54,9 @@ dependencies:
   wakelock:
   uni_links:
   inkwell_splash:
+  simple_color_picker:
+    git:
+      url: https://github.com/simrat39/simple_color_picker
 
 dev_dependencies:
   flutter_test:
@@ -75,13 +78,10 @@ flutter:
     - family: ProductSans
       fonts:
         - asset: assets/fonts/google_sans/ProductSans-Regular.ttf
-
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware.
-
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/assets-and-images/#from-packages
-
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
   # "family" key with the font family name, and a "fonts" key with a
