@@ -1,5 +1,6 @@
 // Flutter imports:
-import 'package:AnimeTwistFlut/pages/homepage/AppbarText.dart';
+import 'package:anime_twist_flut/pages/homepage/AppbarText.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 // Package imports:
@@ -82,15 +83,19 @@ class _AllAnimePageState extends State<AllAnimePage> {
           ],
           elevation: 0.0,
         ),
-        body: ListView.builder(
+        body: Scrollbar(
+          thickness: 4,
           controller: _controller,
-          itemBuilder: (context, index) {
-            TwistModel model = TwistApiService.allTwistModel.elementAt(index);
-            return SearchListTile(
-              twistModel: model,
-            );
-          },
-          itemCount: TwistApiService.allTwistModel.length,
+          child: ListView.builder(
+            controller: _controller,
+            itemBuilder: (context, index) {
+              TwistModel model = TwistApiService.allTwistModel.elementAt(index);
+              return SearchListTile(
+                twistModel: model,
+              );
+            },
+            itemCount: TwistApiService.allTwistModel.length,
+          ),
         ),
       ),
     );

@@ -2,9 +2,11 @@
 import 'dart:async';
 
 // Flutter imports:
-import 'package:AnimeTwistFlut/pages/homepage/HomePage.dart';
-import 'package:AnimeTwistFlut/pages/watch_page/DoubleTapLayer.dart';
-import 'package:AnimeTwistFlut/utils/GetUtils.dart';
+import 'package:anime_twist_flut/pages/settings_page/DoubleTapDurationSetting.dart';
+import 'package:anime_twist_flut/pages/settings_page/ZoomFactorSetting.dart';
+import 'package:anime_twist_flut/pages/watch_page/DoubleTapLayer.dart';
+import 'package:anime_twist_flut/animations/TwistLoadingWidget.dart';
+import 'package:anime_twist_flut/utils/GetUtils.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,8 +15,8 @@ import 'package:flutter/services.dart';
 import 'package:auto_orientation/auto_orientation.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter_android_pip/flutter_android_pip.dart';
-import 'package:get/get.dart';
 import 'package:flutter_riverpod/all.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:supercharged/supercharged.dart';
 import 'package:video_player_header/video_player_header.dart';
 
@@ -27,6 +29,13 @@ import '../../secrets.dart';
 import '../../utils/TimeUtils.dart';
 import '../../utils/watch_page/CryptoUtils.dart';
 import 'package:wakelock/wakelock.dart';
+import 'package:anime_twist_flut/main.dart';
+
+enum VideoMode {
+  Normal,
+  Stretched,
+  Fill,
+}
 
 class WatchPage extends StatefulWidget {
   final EpisodeModel episodeModel;
@@ -35,7 +44,7 @@ class WatchPage extends StatefulWidget {
   final ChangeNotifierProvider<EpisodesWatchedProvider> episodesWatchedProvider;
 
   final TwistModel twistModel = Get.find();
-  final KitsuModel kitsuModel = getAllowNull<KitsuModel>();
+  final KitsuModel kitsuModel = Get.find<KitsuModel>();
 
   WatchPage({
     @required this.episodeModel,
@@ -50,13 +59,13 @@ class WatchPage extends StatefulWidget {
 
 class _WatchPageState extends State<WatchPage> with WidgetsBindingObserver {
   VideoPlayerController _controller;
-  String _duration;
+  VideoMode videoMode = VideoMode.Normal;
   bool isUIvisible = false;
-  bool isWaiting = false;
-  double currentPosition;
-  String currentPositionStr;
   bool isPictureInPicture = false;
   bool isTouchingSlider = false;
+  String _duration;
+  double currentPosition;
+  String currentPositionStr;
   Future _init;
 
   @override
@@ -90,36 +99,38 @@ class _WatchPageState extends State<WatchPage> with WidgetsBindingObserver {
           'https://twist.moe/a/${widget.twistModel.slug}/${widget.episodeModel.number}'
     };
 
-    String sourceSuffix =
-        CryptoUtils.decryptAESCryptoJS(widget.episodeModel.source, key);
+    if (key.isNotEmpty) {
+      String sourceSuffix =
+          CryptoUtils.decryptAESCryptoJS(widget.episodeModel.source, key);
 
-    String vidUrl;
-    if (sourceSuffix.startsWith('https')) {
-      vidUrl = Uri.parse(sourceSuffix).toString();
-    } else {
-      vidUrl =
-          Uri.parse("https://twistcdn.bunny.sh/" + sourceSuffix).toString();
-    }
+      String vidUrl;
+      if (sourceSuffix.startsWith('https')) {
+        vidUrl = Uri.parse(sourceSuffix).toString();
+      } else {
+        vidUrl =
+            Uri.parse("https://twistcdn.bunny.sh/" + sourceSuffix).toString();
+      }
 
-    _controller = VideoPlayerController.network(vidUrl, headers: headers)
-      ..initialize().then((_) {
-        setState(() {
-          play();
-          _duration = TimeUtils.secondsToHumanReadable(
-              _controller.value.duration.inSeconds);
+      _controller = VideoPlayerController.network(vidUrl, headers: headers)
+        ..initialize().then((_) {
+          setState(() {
+            play();
+            _duration = TimeUtils.secondsToHumanReadable(
+                _controller.value.duration.inSeconds);
+          });
+          toggleUI();
         });
-        toggleUI();
+
+      _controller.addListener(() {
+        setState(() {
+          currentPosition = _controller.value.position.inSeconds.toDouble();
+          currentPositionStr = TimeUtils.secondsToHumanReadable(
+              _controller.value.position.inSeconds);
+        });
       });
 
-    _controller.addListener(() {
-      setState(() {
-        currentPosition = _controller.value.position.inSeconds.toDouble();
-        currentPositionStr = TimeUtils.secondsToHumanReadable(
-            _controller.value.position.inSeconds);
-      });
-    });
-
-    _init = init();
+      _init = init();
+    }
     super.initState();
   }
 
@@ -149,14 +160,12 @@ class _WatchPageState extends State<WatchPage> with WidgetsBindingObserver {
   }
 
   void hideUIAfterWait() async {
-    if (!isWaiting && isUIvisible) {
-      isWaiting = true;
+    if (isUIvisible) {
       Timer(5.seconds, () {
         if (!isTouchingSlider)
           setState(() {
             isUIvisible = false;
           });
-        isWaiting = false;
       });
     }
   }
@@ -221,6 +230,62 @@ class _WatchPageState extends State<WatchPage> with WidgetsBindingObserver {
     setState(() {});
   }
 
+  // Most intros/outros are 85 seconds so skip that much time.
+  Future skipIntro() async {
+    _controller
+        .seekTo(Duration(seconds: (await _controller.position).inSeconds + 85));
+  }
+
+  double getScreenAspectRatio(BuildContext context) {
+    Size size = MediaQuery.of(context).size;
+
+    return size.aspectRatio;
+  }
+
+  void setNextVideoMode() {
+    setState(() {
+      switch (videoMode) {
+        case VideoMode.Normal:
+          videoMode = VideoMode.Stretched;
+          break;
+        case VideoMode.Stretched:
+          videoMode = VideoMode.Fill;
+          break;
+        case VideoMode.Fill:
+          videoMode = VideoMode.Normal;
+          break;
+      }
+    });
+  }
+
+  IconData getVideoModeIcon() {
+    switch (videoMode) {
+      case VideoMode.Stretched:
+        return FontAwesomeIcons.expandAlt;
+        break;
+      case VideoMode.Fill:
+        return FontAwesomeIcons.compress;
+        break;
+      case VideoMode.Normal:
+      default:
+        return FontAwesomeIcons.expand;
+        break;
+    }
+  }
+
+  double getAspectRatio(BuildContext context) {
+    switch (videoMode) {
+      case VideoMode.Stretched:
+        return getScreenAspectRatio(context);
+        break;
+      case VideoMode.Fill:
+      case VideoMode.Normal:
+      default:
+        return _controller.value.aspectRatio;
+        break;
+    }
+  }
+
   Future init() async {
     await SystemChrome.setEnabledSystemUIOverlays([]);
     await Wakelock.toggle(enable: true);
@@ -236,144 +301,196 @@ class _WatchPageState extends State<WatchPage> with WidgetsBindingObserver {
             ? MediaQuery.of(context).size.height * 0.05
             : MediaQuery.of(context).size.height * 0.1;
 
-    return GestureDetector(
-      onTap: () {
-        toggleUI();
-      },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: FutureBuilder(
-          future: _init,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(
-                      height: 24.0,
-                    ),
-                    widget.isFromPrevEpisode
-                        ? Text("Loading Next Episode")
-                        : Text("Loading Episode"),
-                  ],
-                ),
-              );
-            }
+    if (key.isEmpty)
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                    "A decryption key was not provided while building. Episode can't be played",
+                    textAlign: TextAlign.center),
+                SizedBox(height: 10),
+                RaisedButton(
+                    child: Text("Go back"),
+                    onPressed: () => Navigator.of(context).pop()),
+              ],
+            ),
+          ),
+        ),
+      );
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: FutureBuilder(
+        future: _init,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
             return Center(
-                child: Stack(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(
+                    height: 24.0,
+                  ),
+                  widget.isFromPrevEpisode
+                      ? Text("Loading Next Episode")
+                      : Text("Loading Episode"),
+                ],
+              ),
+            );
+          }
+          return Center(
+            child: Stack(
               alignment: Alignment.topCenter,
               children: [
-                GestureDetector(
-                  onTap: () {
-                    toggleUI();
-                  },
-                  child: Center(
-                    child: AspectRatio(
-                      aspectRatio: _controller.value.aspectRatio,
-                      child: VideoPlayer(
-                        _controller,
+                Consumer(
+                  builder: (context, watch, child) {
+                    var zoom = watch(zoomFactorProvider);
+                    return Center(
+                      child: Transform.scale(
+                        scale: videoMode == VideoMode.Fill ? zoom.value : 1,
+                        child: AspectRatio(
+                          aspectRatio: getAspectRatio(context),
+                          child: VideoPlayer(
+                            _controller,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
                 Positioned.fill(
                   child: DoubleTapLayer(
                     videoPlayerController: _controller,
+                    isUiVisible: isUIvisible,
                     toggleUI: toggleUI,
                   ),
                 ),
                 AnimatedOpacity(
                   duration: 300.milliseconds,
                   opacity: _controller.value.isBuffering ? 1.0 : 0.0,
-                  child: Center(
-                    child: CircularProgressIndicator(),
+                  child: Transform.scale(
+                    scale: 0.5,
+                    child: Center(
+                      child: RotatingPinLoadingAnimation(),
+                    ),
                   ),
                 ),
                 AnimatedOpacity(
                   duration: 300.milliseconds,
                   opacity: isUIvisible ? 1.0 : 0.0,
-                  child: GestureDetector(
-                    onTap: () {
-                      if (!(isUIvisible)) toggleUI();
-                    },
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IgnorePointer(
-                          ignoring: !isUIvisible,
-                          child: Visibility(
-                            visible: !isPictureInPicture,
-                            child: Container(
-                              height: containerHeight,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: <Color>[
-                                    Colors.transparent,
-                                    Colors.black38,
-                                    Colors.black87,
-                                  ],
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                ),
+                  child: IgnorePointer(
+                    ignoring: !isUIvisible,
+                    child: Visibility(
+                      visible: !isPictureInPicture,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            height: containerHeight,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: <Color>[
+                                  Colors.transparent,
+                                  Colors.black38,
+                                  Colors.black87,
+                                ],
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
                               ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Row(
-                                      children: [
-                                        IconButton(
-                                          icon: Icon(
-                                            Icons.navigate_before,
-                                          ),
-                                          onPressed: () {
-                                            Navigator.pop(context);
-                                          },
-                                        ),
-                                        Expanded(
-                                          child: Padding(
-                                            padding: EdgeInsets.only(
-                                              right: 20.0,
-                                            ),
-                                            child: AutoSizeText(
-                                              widget.twistModel.title,
-                                              maxLines: 2,
-                                              minFontSize: 5.0,
-                                              maxFontSize: 25.0,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Row(
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Row(
                                     children: [
-                                      Padding(
-                                        padding: EdgeInsets.only(
-                                          right: 5.0,
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.navigate_before,
                                         ),
-                                        child: GestureDetector(
-                                          child: Icon(
-                                            Icons.picture_in_picture_rounded,
+                                        onPressed: () {
+                                          Navigator.pop(context);
+                                        },
+                                      ),
+                                      Expanded(
+                                        child: Padding(
+                                          padding: EdgeInsets.only(
+                                            right: 20.0,
                                           ),
-                                          onTap: () {
-                                            setState(() {
-                                              isPictureInPicture = true;
-                                              FlutterAndroidPip
-                                                  .enterPictureInPictureMode;
-                                            });
-                                          },
+                                          child: AutoSizeText(
+                                            widget.twistModel.title,
+                                            maxLines: 2,
+                                            minFontSize: 5.0,
+                                            maxFontSize: 25.0,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
                                         ),
                                       ),
-                                      Consumer(
+                                    ],
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      child: IconButton(
+                                        icon: Icon(
+                                          Icons.settings,
+                                        ),
+                                        onPressed: () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (context) {
+                                              return AlertDialog(
+                                                contentPadding:
+                                                    EdgeInsets.fromLTRB(
+                                                        24, 24, 24, 16),
+                                                content: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Container(
+                                                      child:
+                                                          ZoomFactorSetting(),
+                                                    ),
+                                                    Container(
+                                                      child:
+                                                          DoubleTapDurationSetting(),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 40,
+                                      child: IconButton(
+                                        icon: Icon(
+                                          Icons.picture_in_picture_rounded,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            isPictureInPicture = true;
+                                            FlutterAndroidPip
+                                                .enterPictureInPictureMode;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 40,
+                                      child: Consumer(
                                         builder: (context, watch, child) {
                                           final prov = watch(
                                               widget.episodesWatchedProvider);
@@ -390,162 +507,182 @@ class _WatchPageState extends State<WatchPage> with WidgetsBindingObserver {
                                           );
                                         },
                                       ),
-                                      Padding(
-                                        padding: EdgeInsets.only(
-                                          right: 15.0,
-                                        ),
-                                        child: AutoSizeText(
-                                          "S" +
-                                              widget.twistModel.season
-                                                  .toString() +
-                                              " | E" +
-                                              widget.episodeModel.number
-                                                  .toString(),
-                                          maxLines: 1,
-                                          minFontSize: 5.0,
-                                          maxFontSize: 25.0,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                    ),
+                                    Padding(
+                                      padding: EdgeInsets.only(
+                                        right: 15.0,
+                                      ),
+                                      child: AutoSizeText(
+                                        "S" +
+                                            widget.twistModel.season
+                                                .toString() +
+                                            " | E" +
+                                            widget.episodeModel.number
+                                                .toString(),
+                                        maxLines: 1,
+                                        minFontSize: 5.0,
+                                        maxFontSize: 25.0,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                        IgnorePointer(
-                          ignoring: !isUIvisible,
-                          child: Visibility(
-                            visible: !isPictureInPicture,
-                            child: Container(
-                              height: containerHeight,
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: <Color>[
-                                    Colors.transparent,
-                                    Colors.black38,
-                                    Colors.black87,
-                                  ],
-                                  end: Alignment.bottomCenter,
-                                  begin: Alignment.topCenter,
-                                ),
+                          Container(
+                            height: containerHeight,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: <Color>[
+                                  Colors.transparent,
+                                  Colors.black38,
+                                  Colors.black87,
+                                ],
+                                end: Alignment.bottomCenter,
+                                begin: Alignment.topCenter,
                               ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.start,
-                                children: [
-                                  Padding(
-                                    padding: EdgeInsets.only(
-                                      left: 10.0,
+                            ),
+                            child: Row(
+                              children: [
+                                Row(
+                                  children: [
+                                    Padding(
+                                      padding: EdgeInsets.only(
+                                        left: 8.0,
+                                      ),
+                                      child: Container(
+                                        width: 35.0,
+                                        child: IconButton(
+                                          icon: Icon(
+                                            _controller.value.isPlaying
+                                                ? Icons.pause
+                                                : Icons.play_arrow,
+                                          ),
+                                          onPressed: () {
+                                            togglePlay();
+                                          },
+                                          iconSize: 22.5,
+                                        ),
+                                      ),
                                     ),
-                                    child: Container(
-                                      width: 30.0,
+                                    Container(
+                                      width: 35,
                                       child: IconButton(
                                         icon: Icon(
-                                          _controller.value.isPlaying
-                                              ? Icons.pause
-                                              : Icons.play_arrow,
+                                          Icons.skip_next_outlined,
                                         ),
-                                        onPressed: () {
-                                          togglePlay();
-                                        },
                                         iconSize: 22.5,
+                                        onPressed: widget.episodes.last ==
+                                                widget.episodeModel
+                                            ? null
+                                            : () {
+                                                setEpisodeAsCompleted(
+                                                    context, false);
+                                                addEpisodeToRecentlyWatched(
+                                                    context);
+                                                goToNextEpisode(context);
+                                              },
                                       ),
                                     ),
-                                  ),
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.skip_next_outlined,
-                                    ),
-                                    iconSize: 22.5,
-                                    onPressed: widget.episodes.last ==
-                                            widget.episodeModel
-                                        ? null
-                                        : () {
-                                            setEpisodeAsCompleted(
-                                                context, false);
-                                            addEpisodeToRecentlyWatched(
-                                                context);
-                                            goToNextEpisode(context);
-                                          },
-                                  ),
-                                  Text(
-                                    currentPositionStr,
-                                  ),
-                                  Expanded(
-                                    child: Slider(
-                                      value: _controller
-                                          .value.position.inSeconds
-                                          .toDouble(),
-                                      activeColor:
-                                          Theme.of(context).accentColor,
-                                      inactiveColor: Theme.of(context)
-                                          .accentColor
-                                          .withOpacity(0.5),
-                                      min: 0,
-                                      max: _controller.value.duration.inSeconds
-                                          .toDouble(),
-                                      label: TimeUtils.secondsToHumanReadable(
-                                          _controller.value.position.inSeconds),
-                                      divisions:
-                                          _controller.value.duration.inSeconds,
-                                      onChanged: (pos) {
-                                        setState(
-                                          () {
-                                            _controller.seekTo(pos.seconds);
-                                          },
-                                        );
-                                      },
-                                      onChangeStart: (val) => setState(
-                                          () => isTouchingSlider = true),
-                                      onChangeEnd: (val) => setState(() {
-                                        isTouchingSlider = false;
-                                        hideUIAfterWait();
-                                      }),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: EdgeInsets.only(
-                                      right: 5.0,
-                                    ),
-                                    child: Text(_duration),
-                                  ),
-                                  GestureDetector(
-                                    child: Padding(
-                                      padding: EdgeInsets.only(
-                                        bottom: 3.0,
-                                        right: 15.0,
-                                        left: 10.0,
-                                      ),
-                                      child: Icon(
-                                        Icons.screen_rotation_rounded,
-                                        size: 19.0,
+                                    Padding(
+                                      padding:
+                                          const EdgeInsets.only(right: 8.0),
+                                      child: Container(
+                                        width: 35,
+                                        child: IconButton(
+                                          icon:
+                                              Icon(Icons.fast_forward_outlined),
+                                          onPressed: () => skipIntro(),
+                                          iconSize: 22.5,
+                                        ),
                                       ),
                                     ),
-                                    onTap: () {
-                                      rotate();
+                                    Text(
+                                      currentPositionStr,
+                                    ),
+                                  ],
+                                ),
+                                Expanded(
+                                  child: Slider(
+                                    value: _controller.value.position.inSeconds
+                                        .toDouble(),
+                                    activeColor: Theme.of(context).accentColor,
+                                    inactiveColor: Theme.of(context)
+                                        .accentColor
+                                        .withOpacity(0.5),
+                                    min: 0,
+                                    max: _controller.value.duration.inSeconds
+                                        .toDouble(),
+                                    label: TimeUtils.secondsToHumanReadable(
+                                        _controller.value.position.inSeconds),
+                                    divisions:
+                                        _controller.value.duration.inSeconds,
+                                    onChanged: (pos) {
+                                      setState(
+                                        () {
+                                          _controller.seekTo(pos.seconds);
+                                        },
+                                      );
                                     },
+                                    onChangeStart: (val) =>
+                                        setState(() => isTouchingSlider = true),
+                                    onChangeEnd: (val) => setState(() {
+                                      isTouchingSlider = false;
+                                      hideUIAfterWait();
+                                    }),
                                   ),
-                                ],
-                              ),
+                                ),
+                                Row(
+                                  children: [
+                                    Padding(
+                                      padding: EdgeInsets.only(
+                                        right: 8.0,
+                                      ),
+                                      child: Text(_duration),
+                                    ),
+                                    Container(
+                                      width: 35,
+                                      margin: EdgeInsets.only(bottom: 3),
+                                      child: IconButton(
+                                        icon: Icon(getVideoModeIcon()),
+                                        iconSize: 18,
+                                        onPressed: () {
+                                          setNextVideoMode();
+                                        },
+                                      ),
+                                    ),
+                                    Container(
+                                      width: 35,
+                                      margin: EdgeInsets.only(bottom: 3),
+                                      child: IconButton(
+                                        icon:
+                                            Icon(Icons.screen_rotation_rounded),
+                                        iconSize: 18,
+                                        onPressed: () {
+                                          rotate();
+                                        },
+                                      ),
+                                    ),
+                                    SizedBox(width: 8.0),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ],
-            )
-                // : Center(
-                //   ),
-                );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }

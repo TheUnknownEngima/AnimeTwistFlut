@@ -1,13 +1,15 @@
 // Flutter imports:
-import 'package:AnimeTwistFlut/pages/homepage/donation_card/GenericDonationSheet.dart';
+import 'package:anime_twist_flut/pages/homepage/donation_card/GenericDonationSheet.dart';
 import 'package:flutter/material.dart';
 
 // Package imports:
-import 'package:get/get.dart';
+import 'package:anime_twist_flut/utils/GetUtils.dart';
 
 // Project imports:
-import 'package:AnimeTwistFlut/services/twist_service/TwistApiService.dart';
+import 'package:anime_twist_flut/services/twist_service/TwistApiService.dart';
+import 'package:flutter_riverpod/all.dart';
 import '../../../utils/homepage/DonationUtils.dart';
+import '../../../animations/TwistLoadingWidget.dart';
 
 class DonationCard extends StatefulWidget {
   @override
@@ -16,22 +18,24 @@ class DonationCard extends StatefulWidget {
   }
 }
 
-class _DonationCardState extends State<DonationCard> {
-  Future<List<int>> _dataInit;
-
-  @override
-  void initState() {
+class _DonationCardState extends State<DonationCard>
+    with AutomaticKeepAliveClientMixin {
+  final _dataInitProvider = FutureProvider.autoDispose<List<int>>((ref) async {
     TwistApiService twistApiService = Get.find();
-    _dataInit = twistApiService.getDonationsData();
-    super.initState();
-  }
+    return twistApiService.getDonationsData();
+  });
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: _dataInit,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done)
+    super.build(context);
+    return Consumer(builder: (context, watch, child) {
+      return watch(_dataInitProvider).when(
+        data: (data) {
+          int currentAmount, totalAmount;
+          if ((data).length > 0) {
+            currentAmount = data[0];
+            totalAmount = data[1];
+          }
           return Card(
             child: InkWell(
               borderRadius: BorderRadius.circular(8.0),
@@ -111,9 +115,9 @@ class _DonationCardState extends State<DonationCard> {
                             ),
                           ),
                           Text(
-                            snapshot.data[0].toString() +
+                            (currentAmount?.toString() ?? "?") +
                                 " / " +
-                                snapshot.data[1].toString(),
+                                (totalAmount?.toString() ?? "?"),
                             textAlign: TextAlign.start,
                             style: TextStyle(
                               fontSize: 20.0,
@@ -128,7 +132,7 @@ class _DonationCardState extends State<DonationCard> {
                         bottom: 10.0,
                       ),
                       child: LinearProgressIndicator(
-                        value: snapshot.data[0] / snapshot.data[1],
+                        value: (currentAmount ?? 0.0) / (totalAmount ?? 1.0),
                         backgroundColor:
                             Theme.of(context).accentColor.withOpacity(
                                   0.5,
@@ -155,20 +159,44 @@ class _DonationCardState extends State<DonationCard> {
               ),
             ),
           );
-        return Card(
+        },
+        loading: () => Card(
           child: Center(
             child: Padding(
               padding: EdgeInsets.all(
-                15.0,
+                35,
               ),
               child: Transform.scale(
-                scale: 0.5,
-                child: CircularProgressIndicator(),
+                scale: 0.4,
+                child: RotatingPinLoadingAnimation(),
               ),
             ),
           ),
-        );
-      },
-    );
+        ),
+        error: (error, stacktrace) => Card(
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 2,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Failed to get donation data"),
+                  ElevatedButton(
+                    child: Text("Retry"),
+                    onPressed: () => context.refresh(_dataInitProvider),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    });
   }
+
+  @override
+  bool get wantKeepAlive => true;
 }

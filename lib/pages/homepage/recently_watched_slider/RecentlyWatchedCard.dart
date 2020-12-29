@@ -1,8 +1,8 @@
 // Flutter imports:
 import 'dart:ui';
 
-import 'package:AnimeTwistFlut/constants.dart';
-import 'package:AnimeTwistFlut/models/RecentlyWatchedModel.dart';
+import 'package:anime_twist_flut/constants.dart';
+import 'package:anime_twist_flut/models/RecentlyWatchedModel.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -39,10 +39,8 @@ class _RecentlyWatchedCardState extends State<RecentlyWatchedCard> {
   }
 
   bool shouldOffset() {
-    // Since we can't access pageController.page before min/maxScrollExtent /
-    // pixels is null, return false if thats the case and prevent nasty
-    // exceptions.
-    if (widget.pageController.position.minScrollExtent == null) return false;
+    // Dont offset if min/max scroll extent havent been laid out yet
+    if (!widget.pageController.position.hasContentDimensions) return false;
     return widget.pageController.page.floor() == widget.pageNum;
   }
 
@@ -75,7 +73,8 @@ class _RecentlyWatchedCardState extends State<RecentlyWatchedCard> {
               color: Color(0xff070E30).withOpacity(0.7),
             ),
           ),
-          Positioned(
+          Positioned.fill(
+            top: MediaQuery.of(context).viewPadding.top,
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

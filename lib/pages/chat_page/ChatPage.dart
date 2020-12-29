@@ -2,7 +2,7 @@
 import 'dart:convert';
 
 // Flutter imports:
-import 'package:AnimeTwistFlut/pages/homepage/AppbarText.dart';
+import 'package:anime_twist_flut/pages/homepage/AppbarText.dart';
 import 'package:flutter/material.dart';
 
 // Package imports:
@@ -112,6 +112,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             }
           }
           return Scrollbar(
+            thickness: 4,
             controller: _controller,
             child: ListView.builder(
               controller: _controller,

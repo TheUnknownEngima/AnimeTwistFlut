@@ -1,7 +1,7 @@
 // Flutter imports:
-import 'package:AnimeTwistFlut/models/RecentlyWatchedModel.dart';
-import 'package:AnimeTwistFlut/pages/homepage/HomePage.dart';
-import 'package:AnimeTwistFlut/pages/homepage/explore_slider/ExploreRowItem.dart';
+import 'package:anime_twist_flut/main.dart';
+import 'package:anime_twist_flut/models/RecentlyWatchedModel.dart';
+import 'package:anime_twist_flut/pages/homepage/explore_slider/ExploreRowItem.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/all.dart';
 
@@ -56,7 +56,6 @@ class _ToWatchRowState extends State<ToWatchRow> {
                 ),
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  physics: BouncingScrollPhysics(),
                   itemBuilder: (context, index) {
                     // The list is reversed as the animes are stored from old
                     // to new and we want the user to see the latest added

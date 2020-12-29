@@ -1,5 +1,5 @@
+import 'package:anime_twist_flut/main.dart';
 import 'package:flutter/material.dart';
-import 'package:AnimeTwistFlut/pages/homepage/HomePage.dart';
 import 'package:flutter_riverpod/all.dart';
 
 class ResetToWatchSetting extends StatefulWidget {
@@ -11,7 +11,7 @@ class ResetToWatchSetting extends StatefulWidget {
 
 class _ResetToWatchSettingState extends State<ResetToWatchSetting> {
   void showConfirmationSnackbar() {
-    Scaffold.of(context).showSnackBar(SnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text("To watch list cleared!"),
       behavior: SnackBarBehavior.floating,
     ));

@@ -26,7 +26,16 @@ class TwistApiService {
   }
 
   Future<List<int>> getDonationsData() async {
-    DonationApiService motdApiService = DonationApiService();
-    return await motdApiService.getDonations();
+    DonationApiService donationApiService = DonationApiService();
+    return await donationApiService.getDonations();
+  }
+
+  TwistModel getTwistModelFromSlug(String slug) {
+    for (int i = 0; i < allTwistModel.length; i++) {
+      if (allTwistModel.elementAt(i).slug == slug) {
+        return allTwistModel.elementAt(i);
+      }
+    }
+    return null;
   }
 }

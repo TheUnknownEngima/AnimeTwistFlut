@@ -1,4 +1,4 @@
-import 'package:AnimeTwistFlut/main.dart';
+import 'package:anime_twist_flut/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/all.dart';
 import 'package:simple_color_picker/simple_color_picker.dart';
@@ -28,7 +28,7 @@ class _AccentPickerSettingState extends State<AccentPickerSetting> {
                 height: MediaQuery.of(context).size.height * 0.6,
                 onCancel: () => Navigator.of(context).pop(),
                 onColorSelect: (color) {
-                  provider.updateAccent(color);
+                  provider.updateValue(color);
                   Navigator.of(context).pop();
                 },
                 initialColor: Theme.of(context).accentColor,

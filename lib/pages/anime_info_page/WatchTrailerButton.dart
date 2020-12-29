@@ -1,4 +1,4 @@
-import 'package:AnimeTwistFlut/models/KitsuModel.dart';
+import 'package:anime_twist_flut/models/KitsuModel.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -23,7 +23,7 @@ class WatchTrailerButton extends StatelessWidget {
     return Container(
       margin: EdgeInsets.only(
         left: 16.0,
-        right: 16.0,
+        right: 4.0,
         top: 25.0,
         bottom: 20.0,
       ),

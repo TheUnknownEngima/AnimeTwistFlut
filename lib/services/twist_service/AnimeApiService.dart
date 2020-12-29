@@ -5,43 +5,46 @@ import 'dart:convert';
 import '../../cached_http_get/CachedHttpGet.dart';
 import '../../models/TwistModel.dart';
 import '../../secrets.dart';
-import '../AnimeCacheService.dart';
+import '../CacheService.dart';
+import 'package:supercharged/supercharged.dart';
 
 class AnimeApiService {
   static const String baseUrl = 'https://twist.moe/api/anime';
 
   Future<List<TwistModel>> getAllTwistModel() async {
-    AnimeCacheService cacheService = AnimeCacheService();
+    // try {
+    CacheService cacheService = CacheService(
+      "/anime",
+      7.days,
+    );
 
-    String cachedAnimeData = await cacheService.getCachedAnimeData();
-    DateTime cacheDate = await cacheService.getCachedDateTime();
+    await cacheService.initialize();
 
-    String response;
+    String response = await cacheService.getDataAndCacheIfNeeded(
+      getData: () {
+        return CachedHttpGet.get(
+          Request(
+            url: baseUrl,
+            header: {
+              'x-access-token': x_access_token,
+            },
+          ),
+        );
+      },
+      onCache: () {
+        print("Data is not cached or very old");
+      },
+      onSkipCache: () async {
+        print("Data is cached");
+        await Future.delayed(Duration(milliseconds: 400));
+      },
+    );
+
+    if (response == null) {
+      throw Exception("An error occured while getting all the animes :)");
+    }
 
     List<TwistModel> ret = [];
-
-    if (cacheService.shouldUpdateCache(
-      cachedAnimeData: cachedAnimeData,
-      dateTime: cacheDate,
-    )) {
-      print("Data is not cached or very old");
-      response = await CachedHttpGet.get(
-        Request(
-          url: baseUrl,
-          header: {
-            'x-access-token': x_access_token,
-          },
-        ),
-      );
-
-      await cacheService.cacheAnimeData(
-        data: response,
-        dateTime: DateTime.now(),
-      );
-    } else {
-      print("Data is cached");
-      response = cachedAnimeData;
-    }
 
     List<dynamic> jsonData = jsonDecode(response);
 

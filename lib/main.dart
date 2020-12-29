@@ -1,6 +1,25 @@
 // Flutter imports:
-import 'package:AnimeTwistFlut/providers/AccentColorProvider.dart';
+import 'package:anime_twist_flut/animations/Transitions.dart';
+import 'package:anime_twist_flut/animations/TwistLoadingWidget.dart';
+import 'package:anime_twist_flut/exceptions/NoInternetException.dart';
+import 'package:anime_twist_flut/pages/chat_page/ChatPage.dart';
+import 'package:anime_twist_flut/pages/error_page/ErrorPage.dart';
+import 'package:anime_twist_flut/pages/favourites_page/FavouritesPage.dart';
+import 'package:anime_twist_flut/pages/homepage/AppbarText.dart';
+import 'package:anime_twist_flut/pages/search_page/SearchPage.dart';
+import 'package:anime_twist_flut/pages/settings_page/SettingsPage.dart';
+import 'package:anime_twist_flut/providers/settings/AccentColorProvider.dart';
+import 'package:anime_twist_flut/providers/FavouriteAnimeProvider.dart';
+import 'package:anime_twist_flut/providers/NetworkInfoProvider.dart';
+import 'package:anime_twist_flut/providers/RecentlyWatchedProvider.dart';
+import 'package:anime_twist_flut/providers/ToWatchProvider.dart';
+import 'package:anime_twist_flut/providers/settings/DoubleTapDuration.dart';
+import 'package:anime_twist_flut/providers/settings/ZoomFactorProvider.dart';
+import 'package:anime_twist_flut/services/SharedPreferencesManager.dart';
+import 'package:anime_twist_flut/services/twist_service/TwistApiService.dart';
+import 'package:anime_twist_flut/utils/GetUtils.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/all.dart';
 
 // Project imports:
@@ -22,12 +41,78 @@ void main() {
   runApp(ProviderScope(child: RootWindow()));
 }
 
-final accentProvider = ChangeNotifierProvider<AccentColorProvider>((ref) {
-  return AccentColorProvider();
+final sharedPreferencesProvider = Provider<SharedPreferencesManager>((ref) {
+  return SharedPreferencesManager();
 });
 
-class RootWindow extends StatelessWidget {
-  // This widget is the root of your application.
+final accentProvider = ChangeNotifierProvider<AccentColorProvider>((ref) {
+  return AccentColorProvider(ref.read(sharedPreferencesProvider));
+});
+
+final zoomFactorProvider = ChangeNotifierProvider<ZoomFactorProvider>((ref) {
+  return ZoomFactorProvider(ref.read(sharedPreferencesProvider));
+});
+
+final doubleTapDurationProvider =
+    ChangeNotifierProvider<DoubleTapDurationProvider>((ref) {
+  return DoubleTapDurationProvider(ref.read(sharedPreferencesProvider));
+});
+
+final recentlyWatchedProvider =
+    ChangeNotifierProvider<RecentlyWatchedProvider>((ref) {
+  return RecentlyWatchedProvider();
+});
+
+final toWatchProvider = ChangeNotifierProvider<ToWatchProvider>((ref) {
+  return ToWatchProvider();
+});
+
+final favouriteAnimeProvider = ChangeNotifierProvider<FavouriteAnimeProvider>(
+    (ref) => FavouriteAnimeProvider());
+
+class RootWindow extends StatefulWidget {
+  @override
+  _RootWindowState createState() => _RootWindowState();
+}
+
+class _RootWindowState extends State<RootWindow>
+    with SingleTickerProviderStateMixin {
+  TabController _tabController;
+  var pages = [HomePage(), FavouritesPage()];
+
+  var _initDataProvider = FutureProvider.autoDispose((ref) async {
+    ref.maintainState = true;
+
+    // android: Make the navbar transparent, the actual color will be set in
+    // styles.xml
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      systemNavigationBarColor: Colors.transparent,
+    ));
+
+    // Incase we refresh on an error
+    Get.delete<TwistApiService>();
+
+    await ref.read(sharedPreferencesProvider).initialize();
+
+    await ref.read(accentProvider).initalize();
+    TwistApiService twistApiService = Get.put(TwistApiService());
+    await NetworkInfoProvider().throwIfNoNetwork();
+    await twistApiService.setTwistModels();
+    await ref.read(recentlyWatchedProvider).initialize();
+    await ref.read(toWatchProvider).initialize();
+    await ref.read(favouriteAnimeProvider).initialize();
+
+    // dont be blocking
+    ref.read(zoomFactorProvider).initalize();
+    ref.read(doubleTapDurationProvider).initalize();
+  });
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: pages.length, vsync: this);
+  }
+
   @override
   Widget build(BuildContext context) {
     Color bgColor = Color(0xff121212);
@@ -35,40 +120,143 @@ class RootWindow extends StatelessWidget {
 
     return Consumer(
       builder: (context, watch, child) {
-        var accentColor = watch(accentProvider).color;
-        return MaterialApp(
-          home: HomePage(),
-          darkTheme: ThemeData.dark().copyWith(
-            cardColor: cardColor,
-            scaffoldBackgroundColor: bgColor,
-            dialogBackgroundColor: bgColor,
-            accentColor: accentColor,
-            appBarTheme: AppBarTheme(
-              color: bgColor,
-              elevation: 0.0,
+        var accentColor = watch(accentProvider).value;
+        return Shortcuts(
+          shortcuts: <LogicalKeySet, Intent>{
+            LogicalKeySet(LogicalKeyboardKey.select): ActivateIntent(),
+          },
+          child: MaterialApp(
+            home: watch(_initDataProvider).when(
+              data: (v) => Consumer(
+                builder: (context, watch, child) {
+                  return Scaffold(
+                    body: NestedScrollView(
+                      floatHeaderSlivers: true,
+                      headerSliverBuilder: (context, innerBoxIsScrolled) {
+                        return [
+                          SliverOverlapAbsorber(
+                            handle:
+                                NestedScrollView.sliverOverlapAbsorberHandleFor(
+                              context,
+                            ),
+                            sliver: SliverAppBar(
+                              primary: true,
+                              bottom: TabBar(
+                                controller: _tabController,
+                                indicatorColor: Theme.of(context).accentColor,
+                                tabs: [
+                                  Tab(icon: Icon(Icons.home)),
+                                  Tab(icon: Icon(Icons.favorite_outline)),
+                                ],
+                              ),
+                              title: AppbarText(),
+                              actions: [
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.settings,
+                                  ),
+                                  onPressed: () {
+                                    Transitions.slideTransition(
+                                      context: context,
+                                      pageBuilder: () => SettingsPage(),
+                                    );
+                                  },
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.chat_bubble,
+                                  ),
+                                  onPressed: () {
+                                    Transitions.slideTransition(
+                                      context: context,
+                                      pageBuilder: () => ChatPage(),
+                                    );
+                                  },
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.search,
+                                  ),
+                                  onPressed: () {
+                                    Transitions.slideTransition(
+                                      context: context,
+                                      pageBuilder: () => SearchPage(),
+                                    );
+                                  },
+                                ),
+                              ],
+                              pinned: true,
+                              floating: true,
+                              snap: true,
+                            ),
+                          ),
+                        ];
+                      },
+                      body: TabBarView(
+                        controller: _tabController,
+                        children: pages,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              loading: () {
+                return Scaffold(
+                  body: Center(
+                    child: RotatingPinLoadingAnimation(),
+                  ),
+                );
+              },
+              error: (e, s) {
+                var message = 'Whoops! An error occured';
+                switch (e) {
+                  case NoInternetException:
+                    message =
+                        "Looks like you are not connected to the internet . Please reconnect and try again";
+                    break;
+                }
+                return ErrorPage(
+                  message: message,
+                  stackTrace: s,
+                  onRefresh: () => context.refresh(_initDataProvider),
+                );
+              },
             ),
-            cardTheme: CardTheme(
-              margin: EdgeInsets.zero,
-              clipBehavior: Clip.antiAlias,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.0),
+            darkTheme: ThemeData.dark().copyWith(
+              cardColor: cardColor,
+              scaffoldBackgroundColor: bgColor,
+              dialogBackgroundColor: bgColor,
+              accentColor: accentColor,
+              toggleableActiveColor: accentColor,
+              appBarTheme: AppBarTheme(
+                color: bgColor,
+                elevation: 0.0,
+              ),
+              cardTheme: CardTheme(
+                margin: EdgeInsets.zero,
+                clipBehavior: Clip.antiAlias,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+              ),
+              textButtonTheme: TextButtonThemeData(
+                style: ButtonStyle(
+                  foregroundColor: ButtonStyleButton.allOrNull<Color>(
+                    accentColor,
+                  ),
+                  overlayColor: ButtonStyleButton.allOrNull<Color>(
+                    accentColor.withOpacity(0.2),
+                  ),
+                ),
+              ),
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                  style: ElevatedButton.styleFrom(primary: accentColor)),
+              bottomSheetTheme: BottomSheetThemeData(
+                backgroundColor: bgColor,
               ),
             ),
-            textButtonTheme: TextButtonThemeData(
-              style: ButtonStyle(
-                foregroundColor: ButtonStyleButton.allOrNull<Color>(
-                  accentColor,
-                ),
-                overlayColor: ButtonStyleButton.allOrNull<Color>(
-                  accentColor.withOpacity(0.2),
-                ),
-              ),
-            ),
-            bottomSheetTheme: BottomSheetThemeData(
-              backgroundColor: bgColor,
-            ),
+            themeMode: ThemeMode.dark,
           ),
-          themeMode: ThemeMode.dark,
         );
       },
     );

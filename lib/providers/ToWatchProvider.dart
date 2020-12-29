@@ -1,4 +1,4 @@
-import 'package:AnimeTwistFlut/models/RecentlyWatchedModel.dart';
+import 'package:anime_twist_flut/models/RecentlyWatchedModel.dart';
 import 'package:flutter/material.dart';
 
 // Package imports:
@@ -18,14 +18,18 @@ class ToWatchProvider extends ChangeNotifier {
   static const String BOX_NAME = 'toWatch';
   static const String KEY_NAME = 'list';
 
-  Future initData() async {
-    var box = await Hive.openBox(BOX_NAME);
-    // For whatever reason, directly assigning toWatchAnimes to
-    // box.get(KEY_NAME) does not work, so loop through all the elements and
-    // add it to the list one by one.
-    dynamic contents = box?.get(KEY_NAME) ?? [];
-    for (int i = 0; i < contents?.length ?? 0; i++) {
-      toWatchAnimes.add(contents[i]);
+  Future initialize() async {
+    try {
+      var box = await Hive.openBox(BOX_NAME);
+      // For whatever reason, directly assigning toWatchAnimes to
+      // box.get(KEY_NAME) does not work, so loop through all the elements and
+      // add it to the list one by one.
+      dynamic contents = box?.get(KEY_NAME) ?? [];
+      for (int i = 0; i < contents?.length ?? 0; i++) {
+        toWatchAnimes.add(contents[i]);
+      }
+    } catch (e) {
+      throw Exception("Cannot load to watch animes");
     }
   }
 

@@ -1,5 +1,5 @@
+import 'package:anime_twist_flut/main.dart';
 import 'package:flutter/material.dart';
-import 'package:AnimeTwistFlut/pages/homepage/HomePage.dart';
 import 'package:flutter_riverpod/all.dart';
 
 class ResetRecentlyWatchedSetting extends StatefulWidget {
@@ -13,7 +13,7 @@ class ResetRecentlyWatchedSetting extends StatefulWidget {
 class _ResetRecentlyWatchedSettingState
     extends State<ResetRecentlyWatchedSetting> {
   void showConfirmationSnackbar() {
-    Scaffold.of(context).showSnackBar(SnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text("Recently watched animes cleared!"),
       behavior: SnackBarBehavior.floating,
     ));
